@@ -1,6 +1,6 @@
 ---
 name: stm32-regdef-updater
-description: Adds or updates a peripheral's register-definition struct (xxx_RegDef_t / xxx_Regdef_t) and its peripheral pointer macro in hal_drivers/Inc/stm32f407xx.h, sourced from docs/STM32F4xx_RM.pdf (RM0090). Use this whenever the user wants to "add", "define", "implement", or "fill in" a peripheral's registers in stm32f407xx.h — SPI, I2C, USART/UART, ADC, DAC, TIM, DMA, CAN, RTC, SDIO, CRC, PWR, IWDG/WWDG, or any other STM32F407 peripheral — including when they just point at the existing incomplete SPI_RegDef_t stub and say "finish this" or "do the same for I2C". Also covers adding a missing base-address (_BA) macro for a peripheral. Do not use this for bit-field mask/position macros (CR1_SPE, etc.) — that's a separate, later pass.
+description: Adds or updates a peripheral's register-definition struct (xxx_Regdef_t) and its peripheral pointer macro in hal_drivers/Inc/stm32f407xx.h, sourced from docs/STM32F4xx_RM.pdf (RM0090). Use this whenever the user wants to "add", "define", "implement", or "fill in" a peripheral's registers in stm32f407xx.h — SPI, I2C, USART/UART, ADC, DAC, TIM, DMA, CAN, RTC, SDIO, CRC, PWR, IWDG/WWDG, or any other STM32F407 peripheral — including when they just point at the existing incomplete SPI_Regdef_t stub and say "finish this" or "do the same for I2C". Also covers adding a missing base-address (_BA) macro for a peripheral. Do not use this for bit-field mask/position macros (CR1_SPE, etc.) — that's a separate, later pass.
 ---
 
 # STM32F407xx Register Definition Updater
@@ -22,7 +22,7 @@ for a finished driver header.
 
 Before touching anything, ask the user which peripheral(s) to add or update
 (e.g. SPI, I2C, USART/UART, ADC, TIM, DMA, CAN, RTC, SDIO, ...). Don't guess —
-the existing file already has an incomplete `SPI_RegDef_t` stub, but that
+the existing file already has an incomplete `SPI_Regdef_t` stub, but that
 doesn't mean SPI is what they want right now.
 
 If they point at the stub and say "finish this," that's your answer — no

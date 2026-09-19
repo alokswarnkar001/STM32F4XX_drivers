@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the `SPI_Regdef_t` register-map struct and `SPI1`-`SPI6` peripheral pointer macros to `stm32f407xx.h`, plus `SPI_Config_t`/`SPI_Handle_t` driver-config structs in `spi.h`.
 - Added `hal_drivers/Inc/spi.h` and `hal_drivers/Src/spi.c` SPI driver stubs.
 - Removed a redundant `stm32f407xx.h` include from `hal_drivers/Src/gpio.c` (already pulled in via `gpio.h`).
 - Added a `stm32-regdef-updater` Claude Code skill (with a `pdf_to_text.py` helper) to generate peripheral register-definition structs and base-address macros in `stm32f407xx.h` from the STM32F4xx reference manual.

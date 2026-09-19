@@ -134,6 +134,19 @@ typedef struct {
     volatile uint32_t CMPCR;       /* 0x20, Compensation cell control register */
 }SYSCFG_Regdef_t;
 
+/*SPI Peripheral*/
+typedef struct {
+    volatile uint32_t CR1;      /* 0x00, Control register 1 */
+    volatile uint32_t CR2;      /* 0x04, Control register 2 */
+    volatile uint32_t SR;       /* 0x08, Status register */
+    volatile uint32_t DR;       /* 0x0C, Data register */
+    volatile uint32_t CRCPR;    /* 0x10, CRC polynomial register */
+    volatile uint32_t RXCRCR;   /* 0x14, RX CRC register */
+    volatile uint32_t TXCRCR;   /* 0x18, TX CRC register */
+    volatile uint32_t I2SCFGR;  /* 0x1C, I2S configuration register */
+    volatile uint32_t I2SPR;    /* 0x20, I2S prescaler register */
+}SPI_Regdef_t;
+
 
 /****************Peripheral Definitions (Peripheral base addresses typecasted)****************/
 
@@ -154,6 +167,13 @@ typedef struct {
 #define EXTI    ((EXTI_Regdef_t *)EXTI_BA)
 
 #define SYSCFG  ((SYSCFG_Regdef_t *)SYSCFG_BA)
+
+#define SPI1    ((SPI_Regdef_t *)SPI1_BA)
+#define SPI2    ((SPI_Regdef_t *)SPI2_BA)
+#define SPI3    ((SPI_Regdef_t *)SPI3_BA)
+#define SPI4    ((SPI_Regdef_t *)SPI4_BA)
+#define SPI5    ((SPI_Regdef_t *)SPI5_BA)
+#define SPI6    ((SPI_Regdef_t *)SPI6_BA)
 
 
 //Generic macros
