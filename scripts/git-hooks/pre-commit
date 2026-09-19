@@ -1,0 +1,121 @@
+#!/bin/sh
+# AI-assisted pre-commit hook for this repo.
+#
+# For every commit, runs Claude Code non-interactively over the staged
+# files to: add/improve comments, fix function/struct/variable naming to
+# match established conventions, rename files that don't follow this
+# repo's file-naming convention (fixing every reference), and maintain
+# RELEASE.md with a summary of the change.
+#
+# Enable once per clone with:
+#   git config core.hooksPath scripts/git-hooks
+# (or run scripts/setup-git-hooks.sh)
+#
+# Skip for a single commit with:
+#   SKIP_AI_PRECOMMIT=1 git commit ...
+#
+# Tune with env vars: AI_PRECOMMIT_MODEL (default: sonnet),
+# AI_PRECOMMIT_BUDGET_USD (default: 0.50, caps spend per commit).
+
+set -e
+
+if [ -n "$SKIP_AI_PRECOMMIT" ]; then
+    echo "pre-commit: SKIP_AI_PRECOMMIT set, skipping AI review."
+    exit 0
+fi
+
+if ! command -v claude >/dev/null 2>&1; then
+    echo "pre-commit: 'claude' CLI not found on PATH, skipping AI review." >&2
+    echo "pre-commit: install Claude Code, or set SKIP_AI_PRECOMMIT=1 to silence this." >&2
+    exit 0
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -Ev '^(build/|RELEASE\.md$|docs/)' \
+    | grep -Ev '\.(png|jpg|jpeg|gif|ico|zip|bin|elf|hex|o|a|pdf|PDF)$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    echo "pre-commit: no reviewable staged files, skipping AI review."
+    exit 0
+fi
+
+RELEASE_STATUS="exists"
+GIT_LOG_BACKFILL=""
+if [ ! -f RELEASE.md ]; then
+    RELEASE_STATUS="missing - create it"
+    GIT_LOG_BACKFILL=$(git log --oneline -n 200 2>/dev/null || true)
+fi
+
+STAGED_DIFF=$(git diff --cached | head -c 20000)
+
+# Isolate the review to exactly the staged content: stash away anything else
+# (unstaged edits to tracked files, and untracked files) so the working tree
+# matches the index while Claude edits it. Restored unconditionally on exit.
+STASHED=0
+STASH_MARKER="pre-commit-ai-$(date +%s)-$$"
+if ! git diff --quiet 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    if git stash push --keep-index --include-untracked -m "$STASH_MARKER" >/dev/null 2>&1; then
+        STASHED=1
+    fi
+fi
+
+restore_stash() {
+    if [ "$STASHED" -eq 1 ]; then
+        if ! git stash pop >/dev/null 2>&1; then
+            echo "pre-commit: WARNING - could not auto-restore stashed changes (stash message: $STASH_MARKER)." >&2
+            echo "pre-commit: run 'git stash list' and 'git stash pop' manually to recover them." >&2
+        fi
+    fi
+}
+trap restore_stash EXIT
+
+PROMPT=$(cat <<EOF
+You are running as an unattended git pre-commit hook in this STM32F407 firmware repo. Work ONLY within this repo, and ONLY touch files as described in steps 1-4 below. Do not ask questions - make reasonable judgment calls from the existing codebase conventions and proceed.
+
+Staged files for this commit:
+$STAGED_FILES
+
+Diff of staged changes (may be truncated - Read any file directly for full content, the working tree currently matches the staged state):
+$STAGED_DIFF
+
+Do the following, in order:
+
+1. COMMENTS: For each staged file above, add or improve comments on functions, structs, and any non-obvious logic that is new or changed in this diff, matching the comment style already used elsewhere in that file (or, if the file is new, matching sibling files in the same directory). Do not blanket-comment unchanged code, and do not remove any existing comments.
+
+2. NAMING CONVENTIONS: For each staged file, check whether function, struct/typedef, and variable names follow the same convention already established elsewhere in this codebase (check sibling files, e.g. other files in hal_drivers/Src and hal_drivers/Inc). If a newly added or modified identifier in this diff breaks the established convention, rename it consistently - the definition and every call site/usage in the repo.
+
+3. FILE NAMING: Check whether each staged file's name follows the naming convention already used by sibling files in the same directory. If a staged file's name doesn't match, rename it with 'git mv <old> <new>' and then fix every reference to the old filename elsewhere in the repo (#include directives, CMakeLists.txt, any other build files) using Edit.
+
+4. RELEASE.md: RELEASE.md is currently: $RELEASE_STATUS
+   - If it exists, add a new entry near the top summarizing this commit's staged changes (from the diff above). Do not duplicate or rewrite prior entries.
+   - If it does not exist, create it, backfilled with brief entries for the prior commit history below (oldest first), followed by a new entry for this commit's staged changes. Base each backfilled entry only on that commit's one-line summary - do not go fetch full diffs for old commits.
+$GIT_LOG_BACKFILL
+
+Use only these tools: Read, Edit, Write, Grep, Glob, and Bash restricted to 'git mv'. Never run any other shell/git command, and never touch files outside this repo or outside the scope of steps 1-4 above.
+EOF
+)
+
+FILE_COUNT=$(printf '%s\n' "$STAGED_FILES" | wc -l | tr -d ' ')
+echo "pre-commit: running AI review over $FILE_COUNT staged file(s)..."
+
+CLAUDE_MODEL="${AI_PRECOMMIT_MODEL:-sonnet}"
+CLAUDE_BUDGET="${AI_PRECOMMIT_BUDGET_USD:-0.50}"
+
+if ! claude -p "$PROMPT" \
+    --model "$CLAUDE_MODEL" \
+    --permission-mode bypassPermissions \
+    --allowedTools "Read Edit Write Grep Glob Bash(git mv *)" \
+    --max-budget-usd "$CLAUDE_BUDGET" \
+    --no-session-persistence; then
+    echo "pre-commit: AI review step errored - proceeding with the commit unmodified. See output above." >&2
+fi
+
+# The working tree now reflects (original staged state + Claude's fixes)
+# only, since anything else was stashed above - safe to stage everything.
+git add -A
+
+echo "pre-commit: done."
+exit 0

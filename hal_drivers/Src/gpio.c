@@ -1,6 +1,5 @@
 #include "gpio.h"
 #include "rcc.h"
-#include "stm32f407xx.h"
 #include "nvic.h" 
 
 static uint8_t getRCCGPIOPeriBitPos(uint32_t peri_addr) {

@@ -1,3 +1,4 @@
 build
 mx.scratch
 !.settings
+.claude/skills/stm32-regdef-updater/cache/

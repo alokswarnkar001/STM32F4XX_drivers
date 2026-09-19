@@ -134,6 +134,7 @@ typedef struct {
     volatile uint32_t CMPCR;       /* 0x20, Compensation cell control register */
 }SYSCFG_Regdef_t;
 
+
 /****************Peripheral Definitions (Peripheral base addresses typecasted)****************/
 
 #define GPIOA   ((GPIO_Regdef_t *)GPIOA_BA)
