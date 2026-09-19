@@ -29,8 +29,8 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/components.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/files.cmake)
 
 # Add sources to executable/library
-file(GLOB HAL_DRIVERS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/hal_drivers/Src/*.c")
-file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/Src/*.c")
+file(GLOB HAL_DRIVERS_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/hal_drivers/Src/*.c")
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/Src/*.c")
 
 target_sources(${PROJECT_NAME} PRIVATE
   # User defined sources

@@ -17,11 +17,10 @@
  */
 
 #include <stdint.h>
-#include "stm32f407xx.h"
-#include "test.h"
+#include "gpio_test.h"
 
 int main(void)
 {
-    /* Loop forever */
+    gpio_tests();
 	for(;;);
 }
