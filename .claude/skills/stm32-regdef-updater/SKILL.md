@@ -1,6 +1,6 @@
 ---
 name: stm32-regdef-updater
-description: Adds or updates a peripheral's register-definition struct (xxx_Regdef_t) and its peripheral pointer macro in hal_drivers/Inc/stm32f407xx.h, sourced from docs/STM32F4xx_RM.pdf (RM0090). Use this whenever the user wants to "add", "define", "implement", or "fill in" a peripheral's registers in stm32f407xx.h — SPI, I2C, USART/UART, ADC, DAC, TIM, DMA, CAN, RTC, SDIO, CRC, PWR, IWDG/WWDG, or any other STM32F407 peripheral — including when they just point at the existing incomplete SPI_Regdef_t stub and say "finish this" or "do the same for I2C". Also covers adding a missing base-address (_BA) macro for a peripheral. Do not use this for bit-field mask/position macros (CR1_SPE, etc.) — that's a separate, later pass.
+description: Adds or updates a peripheral's register-definition struct (xxx_Regdef_t) and its peripheral pointer macro in hal_drivers/Inc/stm32f407xx.h, sourced from docs/STM32F4xx_RM.pdf (RM0090). Use this whenever the user wants to "add", "define", "implement", or "fill in" a peripheral's registers in stm32f407xx.h — SPI, I2C, USART/UART, ADC, DAC, TIM, DMA, CAN, RTC, SDIO, CRC, PWR, IWDG/WWDG, or any other STM32F407 peripheral — including when they just point at the existing incomplete SPI_Regdef_t stub and say "finish this" or "do the same for I2C". Also covers adding a missing base-address (_BA) macro for a peripheral. ALSO use this when the user asks to add/complete/update a peripheral's register bit fields (e.g. "update SPI_CR1 bit fields", "add bit fields for all I2C registers", "complete the SPI_CR1 union") — those go in the peripheral-specific header (hal_drivers/Inc/spi.h, i2c.h, ...), never in stm32f407xx.h; see the "Bit-field definitions" section. Do not generate SPI_CR1_SPE-style position/mask #defines.
 ---
 
 # STM32F407xx Register Definition Updater
@@ -12,11 +12,18 @@ reference manual — it covers several F4 lines at once, so only trust registers
 bits that this manual documents as present on STM32F407, not lines that don't
 apply here).
 
-This skill produces the register-map struct + base address + pointer macro
-only. It deliberately does **not** generate individual bit-field mask/position
-macros (e.g. `SPI_CR1_SPE`) — that's a distinct, denser pass the user hasn't
-asked for here. Say so explicitly when you report back, so it isn't mistaken
-for a finished driver header.
+This skill has two modes, chosen by what the user asks for:
+
+1. **Register map** (Steps 0-6 below): register-map struct + base address +
+   pointer macro, all in `hal_drivers/Inc/stm32f407xx.h`.
+2. **Bit fields** ("Bit-field definitions" section at the end): per-register
+   bit-field unions, written to the **peripheral-specific header**
+   (`hal_drivers/Inc/spi.h`, `i2c.h`, ...) — *not* to `stm32f407xx.h`.
+
+Only do the mode the user asked for. The register-map mode does not generate
+bit fields; say so when you report back so it isn't mistaken for a finished
+driver header. Never generate `SPI_CR1_SPE`-style position/mask `#define`s in
+either mode — the user has explicitly rejected that style.
 
 ## Step 0 — Ask which peripheral
 
@@ -152,6 +159,79 @@ blank line separating peripheral families, same as the existing entries.
 
 Summarize what changed: which base address macro(s) were added (or confirmed
 already present), the new/replaced struct, and the new pointer macro(s).
-Remind the user that bit-field mask/position macros are a separate pass this
-skill intentionally didn't do, in case they expected a fully bit-defined
-driver header from this alone.
+Remind the user that register bit fields are a separate request (they go in
+the peripheral-specific header, see below) that this pass didn't do, in case
+they expected a fully bit-defined driver header from this alone.
+
+## Bit-field definitions (peripheral-specific header)
+
+Use this when the user asks to add, complete, or update a peripheral's
+register bit fields, using the reference manual (RM0090) as the source. It
+covers **every register** of the peripheral unless the user names specific
+ones.
+
+**Where it goes:** the peripheral's own header in `hal_drivers/Inc/` —
+`spi.h` for SPI, `i2c.h` for I2C, `usart.h` for USART, etc. Never in
+`stm32f407xx.h`. If the peripheral header doesn't exist yet, create it with
+an include guard (`_<PERI>_DRIVER_H_`, as `spi.h` does) and
+`#include "stm32f407xx.h"`; don't touch other headers.
+
+**Reference example** — the user's own `SPI_CR1` in `spi.h`, which they
+started and asked to have completed this way. Look at the live file first
+(Step 1 equivalent: read the whole peripheral header, and match what's
+there), because the user may have changed the style since this was written.
+Everything goes under a banner:
+
+```c
+/******************************** SPI Register Fields Def ********************************/
+```
+
+with one type per register, named `<PERI>_<REG>` (e.g. `SPI_CR1`, `SPI_SR`,
+`SPI_I2SCFGR`) — no `_t` suffix, that's the name the user chose:
+
+```c
+typedef union {
+    uint32_t val;                 /* whole register, read from / write to pPERIx->REG */
+    struct {
+        uint32_t CPHA      : 1;   /* bit 0 */
+        uint32_t CPOL      : 1;
+        uint32_t MSTR      : 1;
+        uint32_t BR        : 3;   /* BR[2:0] */
+        ...
+        uint32_t RESERVED0 : 16;  /* 31:16 */
+    }CR1_Bits;
+}SPI_CR1;
+```
+
+Rules:
+
+- **It must be a `union` of `val` and the bit-field `struct`.** The user's
+  first draft nested a *union* of bit-fields plus a separate `val` member —
+  that overlays every field on bit 0 and leaves `val` disconnected from the
+  bits. Fix that shape if you see it; tell the user you did.
+- The inner struct's member is named `<REG>_Bits` (`CR1_Bits`), and the
+  whole-register member is `val`. Fields are `uint32_t <NAME> : <width>;`.
+- Field names are exactly the manual's names (`BIDIMODE`, `LSBFIRST`,
+  `I2SCFG`, ...). Multi-bit fields use their width (`BR : 3`).
+- **Order fields from bit 0 upward** (ARM GCC allocates bit-fields LSB
+  first), and account for **every bit** so each struct totals exactly 32
+  bits. Fill gaps and the unused upper bits with `uint32_t RESERVEDn : <width>;`
+  (numbered sequentially per register, starting at 0). Add a short
+  `/* bit N */` / `/* 15:8 */` comment on reserved gaps.
+- Mind only what RM0090 documents for STM32F405xx/07xx (same rule as Step 3).
+  Bits the manual calls "Reserved" or "Forced to 0 by hardware" are
+  `RESERVEDn` fields.
+- Take names, widths and positions from the per-register subsections' bit
+  descriptions ("Bit 9 SSM: ...", "Bits 5:3 BR[2:0]: ..."), with the same
+  cache/grep approach as Step 2-3. The register-map summary table's
+  column layout doesn't extract cleanly, so use it only to sanity-check.
+- Sanity-check each register's widths sum to 32 before finishing.
+- Replace an existing stub for a register in place (like the incomplete
+  `SPI_CR1`) — don't add a second type. Leave everything else in the header
+  (config structs, enums, API prototypes) untouched.
+- Put the `Register Fields Def` block once, just above the
+  `APIs Supported by Driver` banner if one exists, registers in offset
+  order.
+
+When you report back, say which registers now have bit-field unions and
+mention any deviation from the user's draft (e.g. the union restructure).

@@ -2,6 +2,7 @@
 #define _STM32F407XX_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 //Base addresses of Different mem regions
 #define FLASH_BA     0x08000000U

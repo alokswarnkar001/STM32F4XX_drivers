@@ -2,46 +2,6 @@
 #include "rcc.h"
 #include "nvic.h" 
 
-static uint8_t getRCCGPIOPeriBitPos(uint32_t peri_addr) {
-    switch(peri_addr) {
-        case GPIOA_BA:
-            return GPIOA_RCC_BIT;
-
-        case GPIOB_BA:
-            return GPIOB_RCC_BIT;
-
-        case GPIOC_BA:
-            return GPIOC_RCC_BIT;
-
-        case GPIOD_BA:
-            return GPIOD_RCC_BIT;
-
-        case GPIOE_BA:
-            return GPIOE_RCC_BIT;
-
-        case GPIOF_BA:
-            return GPIOF_RCC_BIT;
-
-        case GPIOG_BA:
-            return GPIOG_RCC_BIT;
-
-        case GPIOH_BA:
-            return GPIOH_RCC_BIT;
-
-        case GPIOI_BA:
-            return GPIOI_RCC_BIT;
-
-        case GPIOJ_BA:
-            return GPIOJ_RCC_BIT;
-
-        case GPIOK_BA:
-            return GPIOK_RCC_BIT;
-
-        default:
-            return GPIO_INVALID_RCC_BIT;
-    }
-}
-
 static uint8_t getSyscfgPortVal(GPIO_Regdef_t *pGPIO) {
     uint32_t peri_addr = (uint32_t)pGPIO;
     switch(peri_addr) {
@@ -82,17 +42,12 @@ static uint8_t getSyscfgPortVal(GPIO_Regdef_t *pGPIO) {
 */
 static void GPIO_PeriClockControl(GPIO_Handle_t *pGPIO_Handle, uint8_t EnorDi) {
     uint32_t peri_addr = (uint32_t)pGPIO_Handle->pGPIOx;
-    uint8_t rcc_bit_pos = getRCCGPIOPeriBitPos(peri_addr);
-
-    if(rcc_bit_pos == GPIO_INVALID_RCC_BIT) {
-        return;
-    }
 
     if(EnorDi) {
-        RCC_PeriClockEnable(peri_addr, rcc_bit_pos);
+        RCC_PeriClockEnable(peri_addr);
     }
     else {
-        RCC_PeriClockDisable(peri_addr, rcc_bit_pos);
+        RCC_PeriClockDisable(peri_addr);
     }
 }
 
@@ -128,8 +83,7 @@ void GPIO_Init(GPIO_Handle_t *pGPIO_Handle) {
 void GPIO_DeInit(GPIO_Handle_t *pGPIO_Handle) {
     //Reset the Peripheral Regisers using AHB1RSTR register of RCC
     uint32_t peri_addr = (uint32_t)pGPIO_Handle->pGPIOx;
-    uint8_t rcc_bit_pos = getRCCGPIOPeriBitPos(peri_addr);
-    RCC_PeriRst(peri_addr,rcc_bit_pos);
+    RCC_PeriRst(peri_addr);
 
     //Disable the Peripheral Clock
     GPIO_PeriClockControl(pGPIO_Handle, DISABLE);
